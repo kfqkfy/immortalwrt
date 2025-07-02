@@ -1,0 +1,50 @@
+name: Build OpenWrt MW4530R v1
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential ccache ecj fastjar file g++ gawk gettext git java-propose-classpath libelf-dev libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev wget
+
+    - name: Clone OpenWrt 21.02.13
+      run: |
+        git clone -b v21.02.13 https://github.com/openwrt/openwrt.git openwrt
+      shell: bash
+
+    - name: Update and install feeds
+      working-directory: openwrt
+      run: |
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    - name: Copy default config for mercury_mw4530r-v1
+      working-directory: openwrt
+      run: |
+        cp configs/mercury_mw4530r_v1_defconfig .config
+
+    - name: Prepare build config
+      working-directory: openwrt
+      run: |
+        make defconfig
+
+    - name: Build firmware (single thread for debug)
+      working-directory: openwrt
+      run: |
+        make -j1 V=s
+
+    - name: List output files
+      working-directory: openwrt
+      run: |
+        ls -lh bin/targets/ath79/generic/
+        du -h build_dir/target-mips_24kc_musl/linux-ath79_generic/root.squashfs || echo "root.squashfs not found"
